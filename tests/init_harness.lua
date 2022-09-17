@@ -1,4 +1,4 @@
--- Make various fixes to file paths and use a much simpler import function
+-- Make various fixes to file paths
 -- TODO: Linux requires different fixes
 local old_require = require
 require = function(path, ...)
@@ -13,12 +13,26 @@ require = function(path, ...)
     return old_require(new_path, unpack(arg))
 end
 doscript = require
+
+-- Simplified import function
+local imports = {}  -- Map from name (lowercase) to the module
+__module_metatable = {
+    __index = _G
+}
 function import(name)
+    if imports[name:lower()] then
+        return imports[name:lower()]
+    end
     local module = {}
+    setmetatable(module, __module_metatable)
+    imports[name:lower()] = module  -- Need to do this first to prevent infinite recursion
     local ok, msg = pcall(doscript, name, module)
     if not ok then
         WARN(msg)
         error("Error importing '" .. name .. "'", 2)
+        imports[name:lower()] = nil
+    else
+
     end
     return module
 end
@@ -128,3 +142,7 @@ InitialRegistration = false
 --for name,cclass in moho do
 --    ConvertCClassToLuaSimplifiedClass(cclass)
 --end
+
+-- Import the C function prototypes (although they don't do anything)
+moho = {}
+moho.entity_methods = import('/engine/Sim/Entity.lua')
