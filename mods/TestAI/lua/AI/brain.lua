@@ -18,7 +18,7 @@ TestBrain = Class({
         self.construction_manager:New(aiBrain)
         LOG("Started ConstructionManager")
 
-        EcoAllocator.InitAllocator(aiBrain)
+        --EcoAllocator.InitAllocator(aiBrain)
 
         self.air = Air.Air()
         self.air:New(aiBrain)
