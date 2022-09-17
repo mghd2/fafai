@@ -1,0 +1,8 @@
+
+## Installing and running tests
+This project uses submodules; so use `git clone --recursive` when pulling or `git submodule update --init` afterwards.  The submodules are only needed for tests.
+
+### Building lua
+On Linux, just `make`, but there are many problems with incoorrect filename capitalization in imports in the fa repo that I haven't fixed.
+
+On Windows, copy all the files from `src`, `include`, `src/lib` and `src/lua` into the same directory, run `cl *.c -o lua.exe /O1`, and move the binary to `bin\lua.exe`.

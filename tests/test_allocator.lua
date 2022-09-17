@@ -1,7 +1,10 @@
+require "init_harness.lua"
 local lust = require "fa/tests/lust"
-require "tests/init_faf.lua"
 
-local eco = import('mods/TestAI/lua/AI/Production/EcoAllocator.lua')
+require "mods/TestAI/lua/AI/brain.lua"
+require "fa/lua/aibrain.lua"
+
+local eco = import("mods/TestAI/lua/AI/Production/EcoAllocator.lua")
 
 lust.describe("Test Eco Allocator", function()
     lust.describe("string", function()

@@ -1,15 +1,33 @@
+-- Make various fixes to file paths and use a much simpler import function
+-- TODO: Linux requires different fixes
+local old_require = require
+require = function(path, ...)
+    local new_path = path
+    while new_path:sub(1, 3) == "../" do
+        new_path = new_path:sub(4)
+    end
+    if new_path:sub(1, 1) == "/" then
+        new_path = new_path:sub(2)
+    end
+    new_path = string.gsub(new_path, "/", "\\")
+    return old_require(new_path, unpack(arg))
+end
 doscript = require
+function import(name)
+    local module = {}
+    local ok, msg = pcall(doscript, name, module)
+    if not ok then
+        WARN(msg)
+        error("Error importing '" .. name .. "'", 2)
+    end
+    return module
+end
 
 LOG = print
 WARN = print
 SPEW = print
 
--- globalInit removes the metatables from these, but they must exist
---setmetatable(getmetatable(0), {})
--- I've just commented them out
-
 -- Below is lua/globalInit.lua
-
 ---@declare-global
 -- Copyright © 2005 Gas Powered Games, Inc.  All rights reserved.
 --
@@ -44,20 +62,19 @@ __diskwatch = {}
 --    end
 --end
 
-
-
 -- Load system modules
 -- Skip out using the complicated import function because:
 -- - it struggles with case sensitivity on Linux, and
 -- - it messes around with various globals this lua doesn't have.
 --doscript '/lua/system/import.lua'
-function import(name)
+function notimport(name)
     local trimmed_name = name
     if name:sub(1, 1) == '/' then
         trimmed_name = trimmed_name:sub(2)
     end
     local module = {}
-    if true then
+    if false then
+        -- This code was an attempt to make things work on Linux, but it failed
         -- Unfortunately many files in fa/ have incorrect import cases
         local handle = io.popen("find . -type f -iwholename */fa/"..trimmed_name)
         local found_name = handle:read("*a")
