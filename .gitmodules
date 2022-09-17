@@ -1,0 +1,6 @@
+[submodule "fa"]
+	path = fa
+	url = https://github.com/faforever/fa
+[submodule "lua-lang"]
+	path = lua-lang
+	url = https://github.com/faforever/lua-lang

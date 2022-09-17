@@ -1,0 +1,2 @@
+C:\ProgramData\FAForever\bin\ForgedAlliance.exe /init init_fafdevelop.lua /nobugreport /log "%HOMEPATH%\Documents\FAF\AI\game.log" /EnableDiskWatch /nomovie
+echo For nomads need to change to /init init_nomads.lua, or for non-develop init_faf.lua

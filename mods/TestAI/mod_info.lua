@@ -1,0 +1,17 @@
+name = "TestAI"
+uid = "faf4563e-3421-cd0d-3eb2-aae24722f1c1"
+version = 1
+copyright = "2021 Pyrolol"
+description = "Test"
+author = "Pyrolol"
+url = ""
+icon = "/mods/TestAI/MicroAI.jpg"
+selectable = true
+enabled = true
+exclusive = false
+ui_only = false
+requires = { }
+requiresNames = { }
+conflicts = { }
+before = { }
+after = { }
