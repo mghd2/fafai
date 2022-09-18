@@ -1,20 +1,27 @@
 -- The Eco[Provider|Allocator|Task] classes handle distributing economy around weighting by priority
 -- They form a tree: EcoProvider -> EcoAllocator -> EcoAllocators -> EcoTasks
--- There can be many layers of EcoAllocators
+-- There can be many layers of EcoAllocators; although borrowing can be a bit weird across layers
+-- It might be better to just flatten the layers, so there's one allocator and the other layers just multiple priorities through
+-- TODO: Alternatively children could be asked to calculate their own ResourcesToFundingTicks,
+-- taking into account each child onwards's own minimum cost (not using a low min cost from a low prio child, and a high
+-- priority from a high min cost child).
 
 local Task = import('/mods/TestAI/lua/AI/Production/Task.lua')
 
+local next_allocator_id = 1
+
 EcoAllocator = Class({
-    New = function(self)
+    New = function(self, priority)
         -- Allocator parameters used by the parent, call UpdateChildParameters on the parent to update these
         -- Must be set on all EcoAllocators or EcoTasks
         self.energy_ratio = 6
         self.minimum_resource_amount = 50
         self.paused = false
-        self.priority = 0  -- Must not be negative
+        self.priority = priority  -- Must not be negative
+        self.id = 0
 
         self.parent = nil
-        self.children_unpaused = {}  -- Keyed by the child, value is {resource_balance, total_resources_to_funded}
+        self.children_unpaused = {}  -- Keyed by the child id, value is {child, resource_balance, total_resources_to_funded}
         self.children_paused = {}  -- ^^
         self.total_child_priority = 0
 
@@ -22,8 +29,10 @@ EcoAllocator = Class({
 
     -- Add a child EcoAllocator
     AddChild = function(self, child)
-        self.children_unpaused[child] = {0, 0}  -- It's always OK to add to unpaused, because it will be moved immediately after
         child.parent = self
+        child.id = next_allocator_id
+        next_allocator_id = next_allocator_id + 1
+        self.children_unpaused[child.id] = {child, 0, 0}  -- It's always OK to add to unpaused, because it will be moved immediately after
         self:UpdateChildParameters()
     end,
 
@@ -34,70 +43,107 @@ EcoAllocator = Class({
             return 0
         end
         local total_held_resources = 0
-
-        local give_resources = {}
+        local total_spent = 0
 
         -- Distribute the resources between children and fund any children that meet their minimum
         -- TODO: Maybe include the paused resources?  Probably not ideal to go super negative
         -- ^^  : Maybe best is to redistribute paused resources beyond the minimum when it pauses?
-        for c, v in self.children_unpaused do
+        local give_resources = {}
+        for id, v in self.children_unpaused do
+            local child = v[1]
             -- Increase child resources
-            v[1] = v[1] + resources * (c.priority / self.total_child_priority)
+            v[2] = v[2] + resources * (child.priority / self.total_child_priority)
 
             -- Increase total held resources
-            total_held_resources = total_held_resources + v[1]
+            total_held_resources = total_held_resources + v[2]
 
-            if v[1] > c.minimum_resource_amount then
+            if v[2] >= child.minimum_resource_amount then
                 -- We'll do the actual resource giving later so the children don't get a chance to
                 -- re-entrantly change their requests until we've allocated fully.
-                give_resources[c] = v[1]
+                give_resources[id] = v[2]
             end
 
             -- Calculate total additional resources (for us) before this child will be funded
-            v[2] = (c.minimum_resource_amount - v[1]) * (self.total_child_priority / (c.priority + 0.00001))
+            v[3] = (child:CalculateEffectiveMinimum() - v[2]) * (self.total_child_priority / (child.priority + 0.00001))
         end
 
-        local function give_child_resources(c, r)
-            while r >= c.minimum_resource_amount and not c.paused do
-                -- Fund the child and adjust their balance (may go negative)
-                -- Get a reference to the table before it maybe pauses re-entrantly
-                local child_resources = self.children_unpaused[c]
-                local amount_spent = c:GiveResources(r)
-
+        -- Keep all amount spent tracking inside this function
+        local function give_child_resources(id, r)
+            -- Fund the child and adjust their balance (may go negative)
+            -- Get a reference to the table before it maybe pauses re-entrantly
+            local v = self.children_unpaused[id]
+            local child = v[1]
+            local total_spent_this_call = 0
+            LOG("GCR")
+            LOG(id)
+            LOG(r)
+            while r >= child.minimum_resource_amount and not child.paused do
+                local amount_spent = child:GiveResources(r)
+                LOG("Spent "..amount_spent)
                 if amount_spent == 0 then
                     break
                 end
                 r = r - amount_spent
-                child_resources[1] = child_resources[1] - amount_spent
-                child_resources[2] = (c.minimum_resource_amount - child_resources[1]) * (self.total_child_priority / (c.priority + 0.00001))
+                total_spent_this_call = total_spent_this_call + amount_spent
+                total_spent = total_spent + amount_spent
+                total_held_resources = total_held_resources - amount_spent
+                v[2] = v[2] - amount_spent
+                v[3] = (child:CalculateEffectiveMinimum() - v[2]) * (self.total_child_priority / (child.priority + 0.00001))
             end
+            return total_spent_this_call
         end
 
         -- Now give out all the resources
-        for c, r in give_resources do
-            give_child_resources(c, r)
+        for id, r in give_resources do
+            give_child_resources(id, r)
         end
 
         -- If we have enough resources in total to fund the next thing we'd buy, but not allocated to it yet, fund it now
         -- This prevents the held resources from slowing overall production.
         -- e.g. A has prio 20, B and C prio 10: give 20 resources, A gets 10, B and C get 5, but A is funded (to -10) by borrowing
-        while total_held_resources > self.minimum_resource_amount do
+        while total_held_resources >= self.minimum_resource_amount do
             local best_child = nil
             local best_ticks = 9999
-            for c, v in self.children_unpaused do
-                if v[2] < best_ticks and c.minimum_resource_amount < total_held_resources then
-                    -- This child is the closest in time to being funded, and we can afford to fund it now
-                    best_child = c
-                    best_ticks = v[2]
+            for id, v in self.children_unpaused do
+                if v[3] < best_ticks then
+                    -- This child is the next to be funded
+                    best_child = id
+                    best_ticks = v[3]
+                    if v[1].minimum_resource_amount > total_held_resources then
+                        -- Only accelerate it if we can afford it though
+                        best_child = nil
+                    end
                 end
             end
             if best_child then
-                give_child_resources(best_child, total_held_resources)
+                -- Only offer minimum amount, because each time we fund they fall further down the ranking
+                LOG("Making a loan")
+                LOG(repr(self.children_unpaused[best_child]))
+                local amount_spent = give_child_resources(best_child, self.children_unpaused[best_child][1].minimum_resource_amount)
+                if amount_spent == 0 then
+                    break
+                end
             else
                 -- We often need to break because self.minimum_resource_amount may not be enough to fund the nearest thing
                 break
             end
         end
+
+        return total_spent
+    end,
+
+    -- Return the number of resources needed before this allocator would next be able to afford something
+    CalculateEffectiveMinimum = function(self)
+        local best_res = 99999  -- More than in GiveResources()
+        for _, v in self.children_unpaused do
+            local child = v[1]
+            local child_cost = child:CalculateEffectiveMinimum() - v[2]  -- Allow for the current balance
+            local child_eta = child_cost * (self.total_child_priority / (child.priority + 0.00001))
+            if child_eta < best_res then
+                best_res = child_eta
+            end
+        end
+        return best_res
     end,
 
     -- Notify this EcoAllocator that a child may have changed its parameters
@@ -106,33 +152,35 @@ EcoAllocator = Class({
         -- Unpause the newly unpaused children, and pause the newly paused children
         local now_paused_children = {}
         local now_unpaused_children = {}
-        for c, v in self.children_paused do
-            if c.paused then
-                now_paused_children[c] = v
+        for id, v in self.children_paused do
+            if v[1].paused then
+                now_paused_children[id] = v
             else
-                now_unpaused_children[c] = v
+                now_unpaused_children[id] = v
             end
         end
-        for c, v in self.children_unpaused do
-            if c.paused then
-                now_paused_children[c] = v
+        for id, v in self.children_unpaused do
+            if v[1].paused then
+                now_paused_children[id] = v
             else
-                now_unpaused_children[c] = v
+                now_unpaused_children[id] = v
             end
         end
         self.children_paused = now_paused_children
-        self.children_unpaused = now_unpaused_children
-
+        self.children_unpaused = now_unpaused_children  -- TODO: Here
+ 
         -- Recalculate our energy_ratio, minimum_resource_amount and total_child_priority
         self.minimum_resource_amount = 999999
         self.total_child_priority = 0
         local weighted_e_ratio = 0
-        for _, c in self.children_unpaused do
-            if c.minimum_resource_amount < self.minimum_resource_amount then
-                self.minimum_resource_amount = c.minimum_resource_amount
+        -- This iterates table keys and performs floating point calculations, but shouldn't cause desyncs
+        -- because there's no error accumulation and the values are expected to be similar
+        for id, v in self.children_unpaused do
+            if v[1].minimum_resource_amount < self.minimum_resource_amount then
+                self.minimum_resource_amount = v[1].minimum_resource_amount
             end
-            weighted_e_ratio = weighted_e_ratio + c.priority * c.energy_ratio
-            self.total_child_priority = self.total_child_priority + c.priority
+            weighted_e_ratio = weighted_e_ratio + v[1].priority * v[1].energy_ratio
+            self.total_child_priority = self.total_child_priority + v[1].priority
         end
         if self.total_child_priority > 0 then
             self.energy_ratio = weighted_e_ratio / self.total_child_priority
@@ -148,6 +196,7 @@ EcoAllocator = Class({
 EcoProvider = Class({
     New = function(self, child_allocator)
         self.allocator = child_allocator
+        child_allocator.parent = self
     end,
 
     GiveResources = function(self, resources)
@@ -168,14 +217,19 @@ EcoTask = Class({
         self.minimum_resource_amount = 50
         self.paused = false
         self.priority = 0  -- Must not be negative
+        self.id = 0
 
+    end,
+
+    CalculateEffectiveMinimum = function(self)
+        return self.minimum_resource_amount
     end,
 
     -- Use resources
     GiveResources = function(self, resources)
         -- TODO: Create Task to make thing, and somehow find a builder and set it off
         -- TODO: Probably need BuilderPools, which can make sure they always have someone free
-        return 70 -- TODO: Cost of the thing
+        return 50 -- TODO: Cost of the thing
         -- TODO: Maybe eventually find a way to refund resources not spent if the build was interrupted
     end,
 })

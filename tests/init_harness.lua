@@ -12,7 +12,7 @@ require = function(path, ...)
     new_path = string.gsub(new_path, "/", "\\")
     return old_require(new_path, unpack(arg))
 end
-doscript = require
+doscript = require  -- Actually it's not the same; it puts the globals from the file into its second param
 
 -- Simplified import function
 local imports = {}  -- Map from name (lowercase) to the module
@@ -32,7 +32,9 @@ function import(name)
         error("Error importing '" .. name .. "'", 2)
         imports[name:lower()] = nil
     else
-
+        LOG("Importing module "..name)
+        LOG("We got given "..repr(msg))
+        LOG("We got meta "..repr(getmetatable(msg)))
     end
     return module
 end
@@ -144,9 +146,10 @@ InitialRegistration = false
 --end
 
 -- Import the C function prototypes (although they don't do anything)
+import('/engine/Core.lua')
 moho = {}
 moho.entity_methods = import('/engine/Sim/Entity.lua')
-
+--moho.aibrain_methods = 
 
 
 -- Create the ScenarioInfo
