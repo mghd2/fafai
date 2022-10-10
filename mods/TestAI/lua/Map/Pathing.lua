@@ -19,6 +19,7 @@ function CalculatePathing(square, size, cx, cz)
     
     local function canPathSlope(x,z,t) local a,b,d = GTH(x-1,z-1),GTH(x-1,z),GTH(x,z-1) return max(abs(a-b), abs(b-t), abs(t-d), abs(d-a)) <= 0.75 end
     -- This^^ makes 4x as many GTH calls as needed
+    -- Also is it right to use -1?  If we're going to use floor to map positions to this grid shouldn't it be +1?
     local function canPathTerrain(x,z) local t = GTT(x,z) return t ~= 'Dirt09' and t ~= 'Lava01' end
 
     -- Whether the entire square is pathable at a layer
@@ -110,6 +111,8 @@ local function calculateZonesLayer(map, start, layer)
             end
         end
     end
+
+    -- TODO: Would it be faster to work out the map zone=>smallest adjacent zone's zone or mapped zone?
 
     -- Go through and expand each zone in turn
     -- Because we fully expand the smallest numbered zones first, we only need to look at higher zoned neighbors

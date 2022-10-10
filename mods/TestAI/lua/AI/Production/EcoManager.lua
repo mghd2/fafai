@@ -1,3 +1,141 @@
+-- I want to manage my eco balance
+-- The EcoAllocator can return the mass:energy ratio that we'd invest in
+-- Can I put mexes and stuff through the EA?  Not sure...
+-- How about a modified EA, where we have regular tasks with a priority and mex+pgen with infinite priority
+
+-- Examples (numbers fabricated):
+-- Mex = 20s travel time then -3/t, -24/t for 12s total 36, 360; then +2/t, 0
+-- Radar = -4/t, -30/t for 10s total 40, 300; then 0, -20/t
+-- Factory = -4/t, -30/t for 40s total 160, 1200; then -4/t, -20/t
+-- T1 engy = <build costs>; very different if base builder, expander or reclaimer
+
+-- Overall priorities:
+-- 1. Don't stall E in the predictable future
+-- 2. Don't stall M much in the predictable future
+-- 3. Create buildpower when it's usable (this is not a total priority though: need some tanks)
+-- 4. Expand when possible
+-- 5. Build eco / army according to strategy
+
+
+
+
+
+
+-- An EcoImpact describes the economic effect of an task that has been funded
+-- The purpose is to maintain eco balance
+-- They aren't suitable for calculating the cost benefit of various tasks: that must happen before
+-- Most EcoImpacts may start with an initial delay (for travel) with no economic effect
+-- Building a PD then looks like a certain drain during construction, then nothing
+-- Building a factory looks like a certain drain during construction, then a different drain during usage
+-- - Where a factory has varying drain (e.g. T3 air: engies vs ASF), the factory should express the base (engy) drain only
+-- - Building an engineer then might have no EcoImpact; but an ASF EcoImpact expresses the additional E cost
+-- - This helps balance eco and transition to T3 air / power
+-- A reclaiming engineer is a series of bursts of income
+---@class EcoImpact
+EcoImpact = ClassSimple({
+    ---@param times table Each entry is {ticks after adding, mass/tick, energy/tick starting from that tick}; sorted by tick
+    __init = function(self, times)
+        self.times = times
+        self.startTick = 0
+        -- e.g. a factory build in 5s by 1 engy is: {{0, 0, 0}, {50, -6, -60}, {450, -4, -30}}
+        -- The last entry carries on forever
+    end,
+
+    -- Total net mass impact to a point in time
+    ---@param fromTick integer The first tick to count from (excluded)
+    ---@param toTick integer The tick to count up to (included)
+    ---@return integer Mass consumed in this tick
+    ---@return integer Energy consume in this tick
+    ResourceNet = function(self, fromTick, toTick)
+        local mass, energy = 0, 0
+        for _, time in self.times do  -- Actually this is annoying; need to look at the next one as well
+            if fromTick >= self.startTick + time[1] then
+                -- TODO various cases
+                
+            end
+        end
+        return 0, 0
+    end,
+
+    -- TODO: Update EcoImpacts for adjacency savings
+
+    ---@param tick integer The tick to check the resource delta in
+    ---@return integer Mass consumed in this tick
+    ---@return integer Energy consume in this tick
+    ResourceDelta = function(self, tick)
+        for _, time in self.times do
+            if tick >= self.startTick + time[1] then
+                return time[2], time[3]
+            end
+        end
+        return 0, 0
+    end,
+
+    ---@param tick integer The current tick, used as the start for this EcoImpact
+    Start = function(self, tick)
+        self.startTick = tick
+    end,
+})
+
+---@class EcoManager
+---@field tick integer
+EcoManager = ClassSimple({
+    __init = function(self, brain)
+        self.tick = 1
+        self.brain = brain
+        self.ecoImpacts = {}  -- {EcoImpact=true}
+        self.predicted_eco = {}  -- {tick={mass, energy}}
+    end,
+
+    predictionLoop = function(self)
+        local brain = self.brain
+        while not brain:IsDefeated() do
+            local ticksToStallMass = 99999
+            local ticksToStallEnergy = 99999
+            local mass = brain:GetEconomyStored('MASS')
+            local energy = brain:GetEconomyStored('ENERGY')
+            -- That way we use prior team mass overflow by always trying to get to zero mass in 1 minute
+
+            self.predicted_eco[self.tick] = {}
+
+
+
+            -- We mustn't build factories if we can't afford the M/E drain
+            -- Probably should do that in the Allocator side too
+
+            self.tick = self.tick + 1
+            WaitTicks(1)
+        end
+    end,
+
+    -- Let the root EcoAllocator know that we have available resources
+    notifyAvailableResources = function(self, massTick, energyTick)
+        -- Decide on the recurring amounts by looking at projected reclaim and constant income
+        -- Extra amounts should be income this tick - the projected amount
+
+        local rootAllocator = nil
+
+        rootAllocator:GiveResources()
+    end,
+
+    ---@param self EcoManager
+    ---@param oldImpact EcoImpact The previous (unmodified) EcoImpact to be updated, or nil if it's new
+    ---@param newImpact EcoImpact The new EcoImpact to update to, or nil if we're deleting it
+    -- TODO: Make this easier to call
+    UpdateEcoImpact = function(self, oldImpact, newImpact)
+        -- TODO: Maybe not needed; current implementation just does a full recalc
+        newImpact:Start(self.tick)
+        -- Add to list
+    end,
+
+})
+
+
+
+
+
+-- Old below
+
 -- The eco manager projects income and expenditure, and requests construction of economy.
 -- It's not responsible for getting reclaim or expansion.
 -- It monitors other builders and assigns them resources

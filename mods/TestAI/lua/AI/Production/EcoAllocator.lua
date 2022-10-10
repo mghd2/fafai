@@ -6,9 +6,94 @@
 -- taking into account each child onwards's own minimum cost (not using a low min cost from a low prio child, and a high
 -- priority from a high min cost child).
 
+-- What are the pros and cons on flattening all the code into the provider?
+-- Simpler borrowing and maybe simpler code
+-- Con: harder to deal with pausing stuff
+-- Can I get rid of pausing?  I may have to deal with priority values of 0
+
+-- Should this code be integrated with the eco prediction?  Maybe
+-- If I can also consider spends per second and such; I could start things early etc
+-- Perhaps building the exact right ratios isn't super important (can change target), but better eco is good
+
+
+-- Can I put mexes and stuff through the EA?  Not sure...
+-- How about a modified EA, where we have regular tasks with a priority; and also mexes, and also pgens
+-- Mexes and pgens are created externally (without use of priority); they just steal resources at highest priority?
+-- If they could accurately report back the eco they're consuming (rate and total?)
+-- Can I modify this model to include rates?
+
+
 local Task = import('/mods/TestAI/lua/AI/Production/Task.lua')
 
 local next_allocator_id = 1
+
+EA2 = Class({
+    AddChild = function(self, child, priority)
+        self.total_child_priority = self.total_child_priority + priority
+        self.parent:AddChild(child, priority / self.total_child_priority)
+    end,
+
+    
+    -- Ideally I could separate recurring resources and instantaneous?
+    -- A factory doesn't just want resources; it needs to fund its drain
+
+    -- If the ecomanager could feed the allocators with the safe rate (100% generation + 20% reclaim?)
+    -- Then we could use that to decide on factories?
+    -- Prioritize giving non-factories the other stuff?
+    ---@param massRecurring number The total amount of mass/tick that can be consumed
+    -- The EcoAllocator is responsible for tracking how much recurring spend it already has
+    GiveResources = function(self, massRecurring, energyRecurring, massExtra, energyExtra)
+        -- Allocators can use recurring spend to make up for instant spend
+        -- A challenge is keeping mass very close to 0 (factory efficiency vs unused mass)
+
+        -- The problem is that we don't really know how fast we'll consume mass building something
+        
+    end,
+})
+
+ET = Class({
+
+
+    GiveResources = function(self, res)
+
+    end,
+})
+
+
+-- The cost of something is both immediate E and M, and ongoing draw
+
+-- If we have 20% of our eco allocated to land production; that needs to be turned into the right number of factories
+-- The Task (or maybe the land allocator for a zone) needs to figure that out
+
+-- Maybe we use our mass generation + 10% of our average reclaim rate as the amount available for factories
+
+LandAllocator = Class(EA2) {
+    __init = function(self)
+        self.mass_drain = 8  -- We have 2 T1 factories currently for example
+        self.energy_drain = 40
+        self.factoryCount = 2
+    end,
+
+    GiveResources = function(self, mass, energy)
+        -- We're interested in either making units (not doing this implies pausing factories),
+        -- or making additional factories
+        -- The burstiness of GiveResources calls would break this - for drains we need to be called evenly every tick
+        -- Say we tell an allocator what its per tick average is, and it can call back to consume that, reducing it's Gives?
+
+    end,
+
+    UpdateAverageResourceRate = function(self, massPerTick, energyPerTick)
+        -- Here is where we decide if we want more factories or assistance
+        if massPerTick > self.factoryCount * 4 then
+            -- New factory
+            -- TODO: Consider adjacency savings
+
+        end
+    end,
+}
+
+
+-- OLD
 
 EcoAllocator = Class({
     New = function(self, priority)

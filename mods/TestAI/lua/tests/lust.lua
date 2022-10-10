@@ -17,7 +17,7 @@ local function indent(level) return string.rep('\t', level or lust.level) end
 
 function lust.finish()
   if lust.errors ~= 0 then
-    os.exit(-1)
+    LOG("Tests failed")
   end
 end
 
