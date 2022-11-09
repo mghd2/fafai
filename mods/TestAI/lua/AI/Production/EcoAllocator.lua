@@ -15,6 +15,7 @@
 -- If I can also consider spends per second and such; I could start things early etc
 -- Perhaps building the exact right ratios isn't super important (can change target), but better eco is good
 
+-- I probably should poll the units / buildings that exist to calculate ongoing stuff
 
 -- Can I put mexes and stuff through the EA?  Not sure...
 -- How about a modified EA, where we have regular tasks with a priority; and also mexes, and also pgens
@@ -27,7 +28,7 @@ local Task = import('/mods/TestAI/lua/AI/Production/Task.lua')
 
 local next_allocator_id = 1
 
-EA2 = Class({
+EA2 = ClassSimple({
     AddChild = function(self, child, priority)
         self.total_child_priority = self.total_child_priority + priority
         self.parent:AddChild(child, priority / self.total_child_priority)

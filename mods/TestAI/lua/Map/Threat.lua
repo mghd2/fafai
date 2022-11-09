@@ -10,6 +10,7 @@ local Map = import('/mods/TestAI/lua/Map/Map.lua')
 
 local DEBUG = false
 
+-- TODO: Check that Solace's do 4k damage per drop - it's apparently a confusing one
 -- Can't import this function from /lua/system/blueprints-ai.lua.  By Balthazar, but with fixes to damage and interval formulae.
 local function CalculatedDPS(weapon)
     -- Base values

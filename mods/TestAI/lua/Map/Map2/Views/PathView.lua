@@ -13,10 +13,18 @@ local CONN = 5  -- Added to the zone to get the connectivity list
 
 local pathLayer = nil
 
----@class PathLayer
+-- TODO: How to merge with the Class metatable
+local pathMeta = {
+    __index = function(map, x, z)
+        -- TODO: Set this up in init?
+
+    end
+}
+
+---@class PathView
 ---@field SomeUserField string
-PathLayer = ClassSimple({
-    __init = function(self)
+PathView = ClassSimple({
+    __init = function(self, map)
         -- Initialize AI specific data
         self.markers = {}
 
@@ -129,5 +137,12 @@ PathLayer = ClassSimple({
 -- How about considering only points near barriers and points of interest?
 -- Running a pathing calc on them and the source + dest is quite good
 -- Hugely efficient on flat
+-- Trouble is how do you determine which points the source can reach?
 -- Would probably be quite good to reduce the map to "points in the center of 3x3 or 5x5 pathable squares with
 --     at most three of their neighbors (also 3x3/5x5) being pathable"
+
+-- Try and divide the map into convex zones?
+
+-- How do you make a convex space?  Say we have a square grid of pathability made (maybe different size squares).
+
+-- Really I should probably skip pathing for now...

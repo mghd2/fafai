@@ -132,7 +132,10 @@ class StallForecaster(AI):
                         print(sim.tick, b.name, "Making factory")
                         tasks.append(task)
                     else:
-                        tasks.append(BuildTask("nothing", [b]))
+                        if m < e:
+                            tasks.append(BuildTask("mex1", [b]))
+                        else:
+                            tasks.append(BuildTask("pgen1", [b]))
         
         m, e = self.predict_eco(sim, tasks)
         #print(sim.tick, "After builds stalling in", m, e)

@@ -7,13 +7,6 @@ local Land = import('/mods/TestAI/lua/AI/Armies/Land.lua')
 local Map = import('/mods/TestAI/lua/Map/Map.lua')
 
 
-local RunTests = import('/mods/TestAI/lua/tests/test.lua').RunTests
--- Run our unit tests
--- TODO: Remove from production version
-LOG("Running tests")
-RunTests()
-LOG("Tests complete")
-
 TestBrain = Class({
     Start = function(self, aiBrain)
         self.aiBrain = aiBrain

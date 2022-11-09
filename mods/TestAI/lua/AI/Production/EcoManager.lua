@@ -10,11 +10,43 @@
 -- T1 engy = <build costs>; very different if base builder, expander or reclaimer
 
 -- Overall priorities:
--- 1. Don't stall E in the predictable future
--- 2. Don't stall M much in the predictable future
--- 3. Create buildpower when it's usable (this is not a total priority though: need some tanks)
+-- 1. Don't stall E in the predictable future (ideally target a set amount of overflow that changes over time)
+-- 2. Don't stall M much in the predictable future (ideally target a set amount of mass in the bank)
+-- 3. Create buildpower when it's usable (this is not a total priority though: need some tanks - so not too much)
 -- 4. Expand when possible
 -- 5. Build eco / army according to strategy
+-- 6. Prioritize increasing whichever of E / M / BP is in shortest supply (may need to include predicted future M?)
+
+-- Strategy priorities:
+-- 1. Be able to assign a target percentage of eco to various activites and stick close to that
+-- 2. Distinguish between reclaim and ongoing income, and make appropriate BP (facs) investments
+-- ?: Should expansion be included as a strategy?  Maybe
+
+---@class EcoManager2
+EcoManager2 = ClassSimple({
+    __init = function(self, brain)
+        self.brain = brain
+    end,
+
+    DetermineEcoAvailable = function(self)
+
+    end,
+
+
+})
+
+-- Possible approach:
+-- - Take current eco stats, and maybe include some basic stats from planned expansion / construction
+-- - Project stall times and BP coverage
+-- - If we have x mass and v mass/second trajectory; we want to get x down to say <100 and v to 0; needing a mass draw of (v+x/t) to do it in t.
+
+
+-- Can I simplify stuff a bit?
+-- Make more use of the actual stats and less of calculation
+-- Use predicted impacts to modify the current state and trend?
+-- Awkward is that we want to reduce factory count when hitting T2 or T3 potentially
+
+-- I do want early BOs to be largely handled using the same code as later balance
 
 
 
